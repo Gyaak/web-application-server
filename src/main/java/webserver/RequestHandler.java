@@ -1,13 +1,15 @@
 package webserver;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.util.Map;
 
+import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.HttpRequestUtils;
+import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -24,8 +26,34 @@ public class RequestHandler extends Thread {
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
+            BufferedReader br = new BufferedReader(new InputStreamReader(in));
+            String input = "";
+            if((input=br.readLine())==null || input.equals("")) {
+                return;
+            }
+            String[] header = input.split(" ");
+            String method = header[0];
+            String url = header[1];
+            int index = url.indexOf("?");
+            String requestPath = index<0?url:url.substring(0,index);
+            String param = index<0?"":url.substring(index+1);
+            String http = header[2];
+            if(method.equals("POST")) {
+                int len = 0;
+                while((input=br.readLine())!=null && !input.equals("")) {
+                    if(input.startsWith("Content-Length")) {
+                        len = Integer.parseInt(HttpRequestUtils.parseHeader(input).getValue());
+                    }
+                }
+                String postBody = IOUtils.readData(br,len);
+                Map<String,String> map = HttpRequestUtils.parseQueryString(postBody);
+            }
+
+
+
+
             DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = "Hello World".getBytes();
+            byte[] body = Files.readAllBytes(new File("./webapp" + requestPath).toPath());
             response200Header(dos, body.length);
             responseBody(dos, body);
         } catch (IOException e) {
